@@ -1,4 +1,4 @@
-package com.raida.tech.utilities;
+package com.raida.tech.cloudcoin.utilities;
 
 import java.io.BufferedReader;
 import java.io.IOException;

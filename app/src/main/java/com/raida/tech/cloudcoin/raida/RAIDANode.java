@@ -1,4 +1,4 @@
-package com.raida.tech.raida;
+package com.raida.tech.cloudcoin.raida;
 
 import com.google.gson.annotations.Expose;
 import com.google.gson.annotations.SerializedName;

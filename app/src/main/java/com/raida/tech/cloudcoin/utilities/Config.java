@@ -1,4 +1,4 @@
-package com.raida.tech.utilities;
+package com.raida.tech.cloudcoin.utilities;
 
 public class Config {
 
@@ -7,7 +7,6 @@ public class Config {
     public static final String TAG_SUSPECT = "Suspect";
 
     public static final String TAG_LOGS = "Logs";
-
 
     /* Fields */
 

@@ -1,6 +1,6 @@
-package com.raida.tech.raida;
+package com.raida.tech.cloudcoin.raida;
 
-import com.raida.tech.utilities.Config;
+import com.raida.tech.cloudcoin.utilities.Config;
 
 public class MultiDetectRequest {
 

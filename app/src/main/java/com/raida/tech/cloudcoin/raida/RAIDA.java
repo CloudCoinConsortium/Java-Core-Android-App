@@ -1,6 +1,6 @@
-package com.raida.tech.raida;
+package com.raida.tech.cloudcoin.raida;
 
-import com.raida.tech.utilities.Utils;
+import com.raida.tech.cloudcoin.utilities.Utils;
 
 import org.json.JSONException;
 import org.json.JSONObject;
