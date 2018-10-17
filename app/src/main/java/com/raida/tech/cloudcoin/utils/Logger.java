@@ -1,4 +1,4 @@
-package com.raida.tech.cloudcoin.utilities;
+package com.raida.tech.cloudcoin.utils;
 
 /*
   Copyright (c) 2018 Ben Ward, 07/06/18

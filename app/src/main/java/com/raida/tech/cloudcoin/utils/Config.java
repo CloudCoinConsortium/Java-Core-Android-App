@@ -1,4 +1,4 @@
-package com.raida.tech.cloudcoin.utilities;
+package com.raida.tech.cloudcoin.utils;
 
 public class Config {
 

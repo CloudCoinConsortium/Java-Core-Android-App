@@ -1,50 +1,65 @@
 package com.raida.tech.cloudcoin;
 
+import android.annotation.TargetApi;
+import android.app.Dialog;
+import android.content.ClipData;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
+import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
+import android.provider.MediaStore;
 import android.support.v7.app.AppCompatActivity;
+import android.util.Log;
 import android.view.View;
+import android.view.ViewGroup;
+import android.view.Window;
+import android.view.WindowManager;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import com.raida.tech.cloudcoin.core.FileSystem;
 import com.raida.tech.cloudcoin.raida.RAIDA;
-import com.raida.tech.cloudcoin.utilities.Logger;
+import com.raida.tech.cloudcoin.utils.RealPathUtil;
+import com.raida.tech.cloudcoin.utils.SimpleLogger;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
+
+import static com.raida.tech.cloudcoin.raida.RAIDA.updateLog;
 
 public class MainActivity extends AppCompatActivity implements View.OnClickListener {
 
     public enum DepositState { DepositInit, DepositIng, DepositDone }
+    final static int REQUEST_CODE_IMPORT_DIR = 1;
 
     private LinearLayout linearLayoutDeposit;
     private LinearLayout linearLayoutBank;
     private LinearLayout linearLayoutWithdraw;
 
+    private DepositState depositState;
     private boolean depositFinished = true;
-    public static ExecutorService executor = Executors.newFixedThreadPool(25);
-    public static RAIDA[] raidaArray = new RAIDA[25];
+    private boolean asyncFinished = true;
+    private boolean isDepositDialog = false;
+
+    private List<String> files = new ArrayList<>();
+
+    public static int NetworkNumber = 1;
+    public static SimpleLogger logger;
+
+    Dialog dialog;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-    }
-
-    private void init() {
-        for (int i = 0; i < 25; i++) {
-            raidaArray[i] = new RAIDA(i);
-        }
 
         linearLayoutDeposit = findViewById(R.id.ldeposit);
         linearLayoutDeposit.setOnClickListener(this);
@@ -54,6 +69,66 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
         linearLayoutWithdraw = findViewById(R.id.lwithdraw);
         linearLayoutWithdraw.setOnClickListener(this);
+
+        init();
+    }
+
+    @TargetApi(Build.VERSION_CODES.O)
+    private void init() {
+        FileSystem.createDirectories();
+        RAIDA.getInstance();
+        FileSystem.loadFileSystem();
+
+        logger = new SimpleLogger(FileSystem.LogsFolder + "logs" +
+                LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSS")).toLowerCase() + ".log", true);
+
+        //Connect to Trusted Trade Socket
+        //tts = new TrustedTradeSocket("wss://escrow.cloudcoin.digital/ws/", 10, OnWord, OnStatusChange, OnReceive, OnProgress);
+        //tts.Connect().Wait();
+        RAIDA.logger = logger;
+
+        updateLog("Loading Network Directory");
+        SetupRAIDA();
+        FileSystem.loadFileSystem();
+
+        asyncFinished = true;
+        depositState = DepositState.DepositInit;
+
+    }
+
+    public static void SetupRAIDA() {
+        try
+        {
+            RAIDA.instantiate();
+        }
+        catch(Exception e)
+        {
+            System.out.println(e.getLocalizedMessage());
+            e.printStackTrace();
+            System.exit(1);
+        }
+        if (RAIDA.networks.size() == 0)
+        {
+            updateLog("No Valid Network found.Quitting!!");
+            System.exit(1);
+        }
+        else
+        {
+            updateLog(RAIDA.networks.size() + " Networks found.");
+            RAIDA raida = RAIDA.networks.get(0);
+            for (RAIDA r : RAIDA.networks)
+                if (NetworkNumber == r.networkNumber) {
+                    raida = r;
+                    break;
+                }
+
+            RAIDA.activeRAIDA = raida;
+            if (raida == null) {
+                updateLog("Selected Network Number not found. Quitting.");
+                System.exit(0);
+            }
+        }
+        //networks[0]
     }
 
     @Override
@@ -62,7 +137,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
         switch (id) {
             case R.id.ldeposit:
-                if (!depositFinished) return;
+                if (!asyncFinished) return;
 
                 // check internet connection status
                 ConnectivityManager cm = (ConnectivityManager)getSystemService(Context.CONNECTIVITY_SERVICE);
@@ -75,6 +150,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     return;
                 }
 
+                files.clear();
                 showDepositScreen();
                 break;
 
@@ -126,7 +202,146 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         initNetworks();*/
     }
 
+    private void initDialog(int layout) {
+        if (isDepositDialog) return;
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        dialog.setContentView(layout);
+        dialog.getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN);
+        dialog.getWindow().setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+        LinearLayout closeButton = (LinearLayout) dialog.findViewById(R.id.closebutton);
+        closeButton.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                dialog.dismiss();
+            }
+        });
+
+    }
+
+    public void selectFile() {
+        Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+        intent.setType("*/*");
+        intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+        startActivityForResult(Intent.createChooser(intent, "Select Coins"), REQUEST_CODE_IMPORT_DIR);
+    }
+
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+        if (requestCode == REQUEST_CODE_IMPORT_DIR) {
+            if((resultCode == RESULT_OK) && (data != null)) {
+                Uri uri;
+                files.clear();
+                String file;
+
+                if (data.getData() != null)
+                {
+                    uri = data.getData();
+                    file = RealPathUtil.getRealPath(this, uri);
+                    String[] path = file.split(":");
+                    if (path.length > 1)
+                        files.add(path[1]);
+                    else
+                        files.add(file);
+                    //files.Add(file);
+                }
+                else
+                {
+                    if (data.getClipData() != null)
+                    {
+                        ClipData mClipData = data.getClipData();
+                        List<Uri> mArrayUri = new ArrayList<>();
+                        for (int i = 0; i < mClipData.getItemCount(); i++)
+                        {
+
+                            ClipData.Item item = mClipData.getItemAt(i);
+                            uri = item.getUri();
+                            file = RealPathUtil.getRealPath(this, uri);
+                            String[] path = file.split(":");
+                            if (path.length > 1)
+                                files.add(path[1]);
+                            else
+                                files.add(file);
+                        }
+                        Log.v("LOG_TAG", "Selected Images" + mArrayUri.size());
+                    }
+                }
+            } else {
+                //			showError("Internal error");
+            }
+
+            dialog.dismiss();
+            isDepositDialog = false;
+            showDepositScreen();
+            return;
+        }
+
+        //bank.moveExportedToSent();
+        dialog.dismiss();
+    }
+
     private void showDepositScreen() {
+        int totalIncomeLength;
+        String result;
+        TextView ttv;
+        TextView tv;
+        //FileSystem FS = bank.fileUtils;
+
+        switch (depositState)
+        {
+            case DepositIng:
+                break;
+
+            case DepositDone:
+                break;
+
+            case DepositInit:
+                    /*if (FS.suspectCoins.Count() > 0)
+                    {
+                        dialog.Update(Resource.Layout.Depositsuspect);
+                        LinearLayout goButton = dialog.FindViewById<LinearLayout>(Resource.Id.gobutton);
+                        goButton.Click += async delegate
+                        {
+                            isDepositSuspect = true;
+                            await DepositTask();
+                        };
+                        dialog.Show();
+                        return;
+                    }*/
+
+                if (files != null && files.size() > 0)
+                {
+                    /*foreach (string file in files)
+                    {
+                        IEnumerable<CloudCoin> coins = FS.LoadCoins(file);
+                        if (coins != null)
+                        {
+                            FS.WriteCoinsToFile(coins, FS.DepositFolder + System.IO.Path.GetFileName(file));
+                            FS.LoadFileSystem();
+                        }
+                        File.Delete(file);
+                    }*/
+                }
+                else
+                {
+                    //FS.DepositCoins = FS.LoadFolderCoins(FS.DepositFolder);
+                }
+
+                initDialog(R.layout.depositdialog);
+                LinearLayout fileButton = (LinearLayout) dialog.findViewById(R.id.filebutton);
+                fileButton.setOnClickListener(new View.OnClickListener() {
+                    public void onClick(View v) {
+                        selectFile();
+                    }
+                });
+                break;
+        }
+
+
+
+
+        System.out.println("Processing Network Coins...");
+        RAIDA.processNetworkCoins(NetworkNumber);
 
     }
 
@@ -136,71 +351,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     private void showWithdrawScreen() {
 
-    }
-
-    /** Sets the Raida array to echo the production servers. */
-    public static void initializeRealRaida() {
-        for (int i = 0; i < 25; i++) {
-            raidaArray[i].switchToRealHost();
-        }
-    }
-
-    /** Sets the Raida array to echo the test servers. */
-    public static void initializeFakeRaida() {
-        for (int i = 0; i < 25; i++) {
-            raidaArray[i].switchToFakeHost();
-        }
-    }
-
-    /** Prepares 25 ping tests to RAIDA severs*/
-    public static void initializeRaidaEcho() {
-        List<Callable<Void>> taskList = new ArrayList<>();
-        for (int i = 0; i < 25; i++) {
-            final int index = i;
-
-            Callable<Void> callable = () -> {
-                raidaArray[index].echo();
-                System.out.print("." + index);
-                return null;
-            };
-            taskList.add(callable);
-        }
-
-        try {
-            List<Future<Void>> futureList = executor.invokeAll(taskList);
-
-            for (Future<Void> voidFuture : futureList) {
-                try {
-                    voidFuture.get(100, TimeUnit.MILLISECONDS);
-                } catch (ExecutionException e) {
-                    System.out.println("Error executing task " + e.getMessage());
-                } catch (TimeoutException e) {
-                    System.out.println("Timed out executing task" + e.getMessage());
-                }
-            }
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-    }
-
-    /** Sends an echo to each RAIDA server and logs the results. */
-    public static void testRaidaEcho() {
-        System.out.println("\nEchoing RAIDA.\n");
-
-        initializeRaidaEcho();
-
-        StringBuilder masterFile = new StringBuilder();
-        Logger.emptyFolder("Echo");
-
-        for (int i = 0; i < 25; i++) {
-            masterFile.append(raidaArray[i].lastJsonRaFromServer);
-            masterFile.append("<br>");
-            Logger.logFile("Echo", i + "." + raidaArray[i].status + "." + raidaArray[i].msServer + "." +
-                    raidaArray[i].ms + ".log", raidaArray[i].lastJsonRaFromServer.getBytes());
-            System.out.println("RAIDA" + i + ": " + raidaArray[i].status + ", ms:" + raidaArray[i].ms);
-        }
-
-        Logger.logFile("Echo", "echo_log.html", masterFile.toString().getBytes());
     }
 }
 

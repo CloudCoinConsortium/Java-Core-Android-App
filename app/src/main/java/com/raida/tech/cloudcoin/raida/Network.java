@@ -3,7 +3,9 @@ package com.raida.tech.cloudcoin.raida;
 import com.google.gson.annotations.Expose;
 import com.google.gson.annotations.SerializedName;
 
+@SuppressWarnings("unused")
 public class Network {
+
 
     @Expose
     @SerializedName("nn")
@@ -12,3 +14,4 @@ public class Network {
     @SerializedName("raida")
     public RAIDANode[] raida;
 }
+

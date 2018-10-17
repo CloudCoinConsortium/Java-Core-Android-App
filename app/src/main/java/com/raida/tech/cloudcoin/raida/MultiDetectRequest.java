@@ -1,8 +1,9 @@
 package com.raida.tech.cloudcoin.raida;
 
-import com.raida.tech.cloudcoin.utilities.Config;
+import com.raida.tech.cloudcoin.core.Config;
 
 public class MultiDetectRequest {
+
 
     public int[] nn ;
     public int[] sn;
