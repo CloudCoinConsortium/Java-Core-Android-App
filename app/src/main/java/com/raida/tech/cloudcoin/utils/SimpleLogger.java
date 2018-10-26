@@ -1,5 +1,10 @@
 package com.raida.tech.cloudcoin.utils;
 
+import com.raida.tech.cloudcoin.core.FileSystem;
+
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -16,7 +21,6 @@ public class SimpleLogger {
 
     /* Fields */
 
-    private DateTimeFormatter DatetimeFormat;
     private String Filename;
 
     /// <summary>
@@ -32,11 +36,10 @@ public class SimpleLogger {
     }
 
     private void initialize(String FileName, boolean append) {
-        DatetimeFormat = DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSS");
         this.Filename = FileName;
-
+        File file = new File(Filename);
         String logHeader = Filename + " is created.";
-        if (!Files.exists(Paths.get(Filename))) {
+        if (!file.exists()) {
             WriteFormattedLog(INFO, logHeader);
         } else {
             if (!append)
@@ -62,29 +65,29 @@ public class SimpleLogger {
         String pretext;
         switch (level) {
             case TRACE:
-                pretext = LocalDateTime.now().format(DatetimeFormat) + " [TRACE]   ";
+                pretext = FileSystem.getFormattedTime() + " [TRACE]   ";
                 break;
             case INFO:
-                pretext = LocalDateTime.now().format(DatetimeFormat) + " [INFO]    ";
+                pretext = FileSystem.getFormattedTime() + " [INFO]    ";
                 break;
             case DEBUG:
-                pretext = LocalDateTime.now().format(DatetimeFormat) + " [DEBUG]   ";
+                pretext = FileSystem.getFormattedTime() + " [DEBUG]   ";
                 break;
             case WARNING:
-                pretext = LocalDateTime.now().format(DatetimeFormat) + " [WARNING] ";
+                pretext = FileSystem.getFormattedTime() + " [WARNING] ";
                 break;
             case ERROR:
-                pretext = LocalDateTime.now().format(DatetimeFormat) + " [ERROR]   ";
+                pretext = FileSystem.getFormattedTime() + " [ERROR]   ";
                 break;
             case FATAL:
-                pretext = LocalDateTime.now().format(DatetimeFormat) + " [FATAL]   ";
+                pretext = FileSystem.getFormattedTime() + " [FATAL]   ";
                 break;
             default:
                 pretext = "";
                 break;
         }
 
-        WriteLine(pretext + text);
+        WriteLine("\n" + pretext + text);
     }
 
     /// <summary>
@@ -93,7 +96,7 @@ public class SimpleLogger {
     /// <param name="text">Formatted log message</param>
     /// <param name="append">True to append, False to overwrite the file</param>
     /// <exception cref="System.IO.IOException"></exception>
-    private void WriteLine(String text) {
+  /*  private void WriteLine(String text) {
         try {
             StandardOpenOption option = StandardOpenOption.TRUNCATE_EXISTING;
 
@@ -107,6 +110,47 @@ public class SimpleLogger {
             System.out.println(e.getLocalizedMessage());
             e.printStackTrace();
         }
+    }*/
+
+    private void WriteLine(String text) {
+
+        BufferedWriter bw = null;
+        FileWriter fw = null;
+
+        try {
+
+            File file = new File(Filename);
+            if (!file.exists()) {
+                file.createNewFile();
+            }
+            fw = new FileWriter(file.getAbsoluteFile(), true);
+            bw = new BufferedWriter(fw);
+
+            bw.write(text);
+
+            System.out.println("Done");
+
+        } catch (IOException e) {
+
+            e.printStackTrace();
+
+        } finally {
+
+            try {
+
+                if (bw != null)
+                    bw.close();
+
+                if (fw != null)
+                    fw.close();
+
+            } catch (IOException ex) {
+
+                ex.printStackTrace();
+
+            }
+        }
+
     }
 
     /// <summary>

@@ -1,9 +1,12 @@
 package com.raida.tech.cloudcoin.core;
 
 import android.os.Build;
+import android.os.Environment;
 import android.support.annotation.RequiresApi;
+import android.util.Log;
 
 import com.google.gson.Gson;
+import com.raida.tech.cloudcoin.R;
 import com.raida.tech.cloudcoin.utils.CoinUtils;
 import com.raida.tech.cloudcoin.utils.FileUtils;
 import com.raida.tech.cloudcoin.utils.Utils;
@@ -16,7 +19,12 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.Locale;
+import java.util.TimeZone;
 
 //import javax.imageio.ImageIO;
 //import javax.xml.bind.DatatypeConverter;
@@ -28,9 +36,10 @@ public class FileSystem {
 
     /* Fields */
 
-    public static String RootPath = "C:\\MyFiles\\work\\CloudCoin\\Dev\\Console-Java\\"; // TODO: NEVER UPLOAD THIS TO GITHUB!
+    public static SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMddHHmmssSSS", Locale.getDefault());
+    public static String RootPath = Environment.getExternalStorageDirectory()+ File.separator + "CloudCoin" + File.separator; // TODO: NEVER UPLOAD THIS TO GITHUB!
     //public static String RootPath = "C:\\MyFiles\\work\\CloudCoin\\Reference-Projects\\Founders-Release-v2.0.0.4-27072018"; // TODO: NEVER UPLOAD THIS TO GITHUB!
-    //public static String RootPath = Paths.get("").toAbsolutePath().toString() + File.separator;
+//    public static String RootPath = Paths.get("").toAbsolutePath().toString() + File.separator;
 
 
     public static String DetectedPath = File.separator + Config.TAG_DETECTED + File.separator;
@@ -70,20 +79,20 @@ public class FileSystem {
 
     public static boolean createDirectories() {
         try {
-            Files.createDirectories(Paths.get(RootPath));
+            CreateDirectory(RootPath);
 
-            Files.createDirectories(Paths.get(DetectedFolder));
-            Files.createDirectories(Paths.get(ExportFolder));
-            Files.createDirectories(Paths.get(ImportFolder));
-            Files.createDirectories(Paths.get(SuspectFolder));
+            CreateDirectory(DetectedFolder);
+            CreateDirectory(ExportFolder);
+            CreateDirectory(ImportFolder);
+            CreateDirectory(SuspectFolder);
 
-            Files.createDirectories(Paths.get(BankFolder));
-            Files.createDirectories(Paths.get(FrackedFolder));
-            Files.createDirectories(Paths.get(CounterfeitFolder));
-            Files.createDirectories(Paths.get(LostFolder));
+            CreateDirectory(BankFolder);
+            CreateDirectory(FrackedFolder);
+            CreateDirectory(CounterfeitFolder);
+            CreateDirectory(LostFolder);
 
-            Files.createDirectories(Paths.get(LogsFolder));
-            Files.createDirectories(Paths.get(TemplateFolder));
+            CreateDirectory(LogsFolder);
+            CreateDirectory(TemplateFolder);
         } catch (Exception e) {
             System.out.println("FS#CD: " + e.getLocalizedMessage());
             e.printStackTrace();
@@ -96,6 +105,20 @@ public class FileSystem {
     public static void loadFileSystem() {
         importCoins = loadFolderCoins(ImportFolder);
         predetectCoins = loadFolderCoins(SuspectFolder);
+    }
+    public static void CreateDirectory(String dirPath) {
+        File SDCardRoot = new File(dirPath);
+        if (!SDCardRoot.exists()) {
+            Log.d("DIRECTORY CHECK",
+                    "Directory doesnt exist creating directory "
+                            + Environment.getExternalStorageDirectory()
+                            .toString());
+            boolean outcome = SDCardRoot.mkdirs();
+
+            Log.d("DIRECTORY CHECK",
+                    "outcome for " + SDCardRoot.getAbsolutePath() + "     "
+                            + outcome);
+        }
     }
 
     public static void detectPreProcessing() {
@@ -187,6 +210,10 @@ public class FileSystem {
 
     public static void moveCoins(ArrayList<CloudCoin> coins, String sourceFolder, String targetFolder) {
         moveCoins(coins, sourceFolder, targetFolder, ".stack");
+    }
+    public static String getFormattedTime() {
+//        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault());
+        return  sdf.format(Calendar.getInstance().getTime());
     }
     public static void moveCoins(ArrayList<CloudCoin> coins, String sourceFolder, String targetFolder, String extension) {
         for (CloudCoin coin : coins) {
